@@ -1,7 +1,7 @@
-from njinet_agent.config import Settings
-
 import pytest
 from pydantic import ValidationError
+
+from njinet_agent.config import Settings
 
 
 def test_settings_loads_from_env():
