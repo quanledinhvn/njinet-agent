@@ -1,6 +1,6 @@
 from redis.asyncio import Redis
 
-from njinet_agent.events.types import AgentEvent
+from njinet_agent.services.events.types import AgentEvent
 
 
 def channel_for(room_id: str) -> str:

@@ -1,18 +1,18 @@
-from langchain_core.tools import tool
 from langchain_core.messages import AIMessage
+from langchain_core.tools import tool
 from langgraph.checkpoint.memory import MemorySaver
 
-from njinet_agent.agent.graph import build_graph
+from njinet_agent.services.agent.graph import build_graph
 
 
 @tool
 def echo(text: str) -> str:
-    """Trả lại text nhận vào."""
+    """Return the text it receives."""
     return f"echo: {text}"
 
 
 class FakeLLM:
-    """LLM giả: lần đầu đòi gọi tool, lần sau trả text."""
+    """Fake LLM: asks for a tool call first, returns text afterwards."""
 
     def __init__(self):
         self.calls = 0
@@ -37,5 +37,5 @@ async def test_graph_runs_agent_tool_loop():
     result = await graph.ainvoke({"messages": [("user", "hello")]}, cfg)
     
     contents = [m.content for m in result["messages"]]
-    assert "echo: hi" in contents      # tool đã chạy
-    assert "done" in contents          # LLM trả text cuối
+    assert "echo: hi" in contents
+    assert "done" in contents

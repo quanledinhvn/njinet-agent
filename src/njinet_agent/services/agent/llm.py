@@ -1,5 +1,7 @@
 from langchain_openai import ChatOpenAI
-from njinet_agent.config import Settings
+
+from njinet_agent.core.config import Settings
+
 
 def build_llm(settings: Settings) -> ChatOpenAI:
   return ChatOpenAI(

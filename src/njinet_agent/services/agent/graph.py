@@ -1,9 +1,12 @@
-from langgraph.graph import START, StateGraph, MessagesState
-from langgraph.prebuilt import ToolNode, tools_condition
 from langchain_core.language_models import BaseChatModel
+from langchain_core.messages import SystemMessage
 from langchain_core.tools import BaseTool
 from langgraph.checkpoint.base import BaseCheckpointSaver
+from langgraph.graph import START, MessagesState, StateGraph
 from langgraph.graph.state import CompiledStateGraph
+from langgraph.prebuilt import ToolNode, tools_condition
+
+SYSTEM_PROMPT = "Answer in at most 10 words."
 
 
 def build_graph(
@@ -14,7 +17,8 @@ def build_graph(
     llm_with_tools = llm.bind_tools(tools)
 
     async def agent(state: MessagesState):
-        response = await llm_with_tools.ainvoke(state["messages"])
+        messages = [SystemMessage(SYSTEM_PROMPT), *state["messages"]]
+        response = await llm_with_tools.ainvoke(messages)
         return {"messages": [response]}
 
     g = StateGraph(MessagesState)

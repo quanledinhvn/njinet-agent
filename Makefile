@@ -12,7 +12,7 @@ test:
 check: lint fmt test
 
 dev:
-	PYTHONASYNCIODEBUG=1 uv run uvicorn njinet_agent.main:app --reload --port 8000
+	PYTHONASYNCIODEBUG=1 uv run fastapi dev src/njinet_agent/main.py --port 8000
 
 docker-up:
 	docker compose up -d
