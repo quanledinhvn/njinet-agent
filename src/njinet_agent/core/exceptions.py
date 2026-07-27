@@ -1,7 +1,11 @@
+import logging
+
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
+
+logger = logging.getLogger("njinet_agent.error")
 
 
 class AgentError(Exception):
@@ -47,4 +51,12 @@ def register_exception_handlers(app: FastAPI) -> None:
             status_code=422,
             content=error_body("validation_error", "invalid request body")
             | {"detail": exc.errors()},
+        )
+
+    @app.exception_handler(Exception)
+    async def handle_unexpected_error(request: Request, exc: Exception):
+        logger.exception("unhandled error on %s %s", request.method, request.url.path)
+        return JSONResponse(
+            status_code=500,
+            content=error_body("internal_error", "internal server error"),
         )
