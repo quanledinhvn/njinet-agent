@@ -57,7 +57,6 @@ async def test_publishes_final_event(settings, sent_replies, patched_run):
     await run_agent(
         settings=settings,
         room_id="r",
-        actor_id="u",
         agent_id="agent-1",
         agent_username="agent-bot",
         text="hi",
@@ -79,7 +78,6 @@ async def test_passes_thread_id_and_recursion_limit(
     await run_agent(
         settings=settings,
         room_id="r",
-        actor_id="u",
         agent_id="agent-1",
         agent_username="agent-bot",
         text="hi",
@@ -104,7 +102,6 @@ async def test_publishes_error_event_on_failure(
     await run_agent(
         settings=settings,
         room_id="r",
-        actor_id="u",
         agent_id="agent-1",
         agent_username="agent-bot",
         text="hi",

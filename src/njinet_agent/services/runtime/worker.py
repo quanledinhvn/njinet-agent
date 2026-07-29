@@ -15,7 +15,6 @@ Context = dict[str, Any]
 async def run_agent_job(
     ctx: Context,
     room_id: str,
-    actor_id: str,
     agent_id: str,
     agent_username: str,
     text: str,
@@ -25,7 +24,7 @@ async def run_agent_job(
     settings = get_settings()
 
     await run_agent(
-        settings, room_id, actor_id, agent_id, agent_username, text, jwt, request_id
+        settings, room_id, agent_id, agent_username, text, jwt, request_id
     )
 
 

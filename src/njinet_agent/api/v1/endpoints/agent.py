@@ -21,7 +21,6 @@ async def invoke(
     await enqueue_run(
         pool,
         req.roomId,
-        req.actorId,
         req.agentId,
         req.agentUsername,
         req.text,

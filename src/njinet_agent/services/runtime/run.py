@@ -15,7 +15,6 @@ logger = logging.getLogger(__name__)
 async def run_agent(
     settings: Settings,
     room_id: str,
-    actor_id: str,
     agent_id: str,
     agent_username: str,
     text: str,

@@ -11,7 +11,6 @@ def job_id_for(room_id: str, request_id: str) -> str:
 async def enqueue_run(
     pool: ArqRedis,
     room_id: str,
-    actor_id: str,
     agent_id: str,
     agent_username: str,
     text: str,
@@ -22,7 +21,6 @@ async def enqueue_run(
         job = await pool.enqueue_job(
             "run_agent_job",
             room_id,
-            actor_id,
             agent_id,
             agent_username,
             text,

@@ -12,14 +12,13 @@ def test_job_id_is_per_request():
 
 async def test_enqueue_passes_args_and_dedupe_id(fake_pool):
     await enqueue_run(
-        fake_pool, "r-1", "u-1", "agent-1", "agent-bot", "hi", "jwt-abc", "req-1"
+        fake_pool, "r-1", "agent-1", "agent-bot", "hi", "jwt-abc", "req-1"
     )
 
     args, kwargs = fake_pool.jobs[0]
     assert args == (
         "run_agent_job",
         "r-1",
-        "u-1",
         "agent-1",
         "agent-bot",
         "hi",
@@ -37,7 +36,7 @@ async def test_raises_when_job_deduped(fake_pool):
 
     with pytest.raises(EnqueueError):
         await enqueue_run(
-            fake_pool, "r-1", "u-1", "agent-1", "agent-bot", "hi", "j", "req-1"
+            fake_pool, "r-1", "agent-1", "agent-bot", "hi", "j", "req-1"
         )
 
 
@@ -49,5 +48,5 @@ async def test_raises_when_redis_unreachable(fake_pool):
 
     with pytest.raises(EnqueueError):
         await enqueue_run(
-            fake_pool, "r-1", "u-1", "agent-1", "agent-bot", "hi", "j", "req-1"
+            fake_pool, "r-1", "agent-1", "agent-bot", "hi", "j", "req-1"
         )
