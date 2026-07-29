@@ -6,7 +6,7 @@ from langgraph.graph import START, MessagesState, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
 
-SYSTEM_PROMPT = "Answer in at most 10 words."
+from njinet_agent.services.agent.prompts import ORCHESTRATOR_SYSTEM_PROMPT
 
 
 def build_graph(
@@ -17,7 +17,7 @@ def build_graph(
     llm_with_tools = llm.bind_tools(tools)
 
     async def agent(state: MessagesState):
-        messages = [SystemMessage(SYSTEM_PROMPT), *state["messages"]]
+        messages = [SystemMessage(ORCHESTRATOR_SYSTEM_PROMPT), *state["messages"]]
         response = await llm_with_tools.ainvoke(messages)
         return {"messages": [response]}
 
