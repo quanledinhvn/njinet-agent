@@ -11,7 +11,7 @@ def verify_service_token(token: str | None, expected: str) -> None:
 
 
 async def service_auth(
-    x_service_token: str | None = Header(default=None),
+    njin_secret_key: str | None = Header(default=None),
     settings: Settings = Depends(get_settings),
 ) -> None:
-    verify_service_token(x_service_token, settings.service_token)
+    verify_service_token(njin_secret_key, settings.njin_secret_key)
