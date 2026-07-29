@@ -12,7 +12,7 @@ from njinet_agent.services.agent.prompts import ORCHESTRATOR_SYSTEM_PROMPT
 def build_graph(
     llm: BaseChatModel,
     tools: list[BaseTool],
-    checkpointer: BaseCheckpointSaver,
+    checkpointer: BaseCheckpointSaver | None = None,
 ) -> CompiledStateGraph:
     llm_with_tools = llm.bind_tools(tools)
 
@@ -29,5 +29,5 @@ def build_graph(
     g.add_edge(START, "agent")
     g.add_conditional_edges("agent", tools_condition)
     g.add_edge("tools", "agent")
-    
+
     return g.compile(checkpointer=checkpointer)

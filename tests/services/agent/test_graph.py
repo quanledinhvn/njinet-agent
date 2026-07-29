@@ -1,7 +1,5 @@
 from langchain_core.messages import AIMessage
 from langchain_core.tools import tool
-from langgraph.checkpoint.memory import MemorySaver
-
 from njinet_agent.services.agent.graph import build_graph
 
 
@@ -31,10 +29,9 @@ class FakeLLM:
 
 
 async def test_graph_runs_agent_tool_loop():
-    graph = build_graph(FakeLLM(), [echo], MemorySaver())
+    graph = build_graph(FakeLLM(), [echo])
 
-    cfg = {"configurable": {"thread_id": "room:test"}}
-    result = await graph.ainvoke({"messages": [("user", "hello")]}, cfg)
+    result = await graph.ainvoke({"messages": [("user", "hello")]}, {})
     
     contents = [m.content for m in result["messages"]]
     assert "echo: hi" in contents

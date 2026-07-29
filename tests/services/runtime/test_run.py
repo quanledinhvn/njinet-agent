@@ -1,5 +1,3 @@
-from contextlib import asynccontextmanager
-
 import pytest
 from langchain_core.messages import AIMessage
 
@@ -15,11 +13,6 @@ class FakeGraph:
     async def ainvoke(self, state, cfg):
         self.calls.append((state, cfg))
         return {"messages": [AIMessage(content=self.reply)]}
-
-
-@asynccontextmanager
-async def fake_checkpointer(settings):
-    yield None
 
 
 async def _async_return(value):
@@ -45,11 +38,10 @@ def sent_replies(monkeypatch) -> list:
 
 @pytest.fixture
 def patched_run(monkeypatch, graph) -> FakeGraph:
-    """Replace the LLM, MCP tools and checkpointer with fakes."""
+    """Replace the LLM, MCP tools and graph builder with fakes."""
     monkeypatch.setattr(run_module, "load_tools", lambda *a, **k: _async_return([]))
     monkeypatch.setattr(run_module, "build_llm", lambda settings: None)
-    monkeypatch.setattr(run_module, "build_graph", lambda llm, tools, cp: graph)
-    monkeypatch.setattr(run_module, "open_checkpointer", fake_checkpointer)
+    monkeypatch.setattr(run_module, "build_graph", lambda llm, tools: graph)
     return graph
 
 
@@ -72,9 +64,7 @@ async def test_publishes_final_event(settings, sent_replies, patched_run):
     assert call["agent_username"] == "agent-bot"
 
 
-async def test_passes_thread_id_and_recursion_limit(
-    settings, sent_replies, patched_run
-):
+async def test_passes_recursion_limit(settings, sent_replies, patched_run):
     await run_agent(
         settings=settings,
         room_id="r",
@@ -87,7 +77,6 @@ async def test_passes_thread_id_and_recursion_limit(
 
     state, cfg = patched_run.calls[0]
     assert state == {"messages": [("user", "hi")]}
-    assert cfg["configurable"]["thread_id"] == "room:r"
     assert cfg["recursion_limit"] == settings.recursion_limit
 
 

@@ -20,7 +20,7 @@ def register_middleware(app: FastAPI, settings: Settings) -> None:
     )
 
     @app.middleware("http")
-    async def log_requests(request: Request, call_next):
+    async def log_requests(request: Request, call_next):  # pyright: ignore[reportUnusedFunction]
         request_id = request.headers.get("X-Request-Id") or str(uuid.uuid4())
         started = time.perf_counter()
 
