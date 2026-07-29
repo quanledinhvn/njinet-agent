@@ -14,8 +14,11 @@ async def send_reply(
     request_id: str,
     status: Literal["final", "error"],
     text: str,
+    transport: httpx.BaseTransport | None = None,
 ) -> None:
-    async with httpx.AsyncClient(timeout=settings.callback_timeout) as client:
+    async with httpx.AsyncClient(
+        timeout=settings.callback_timeout, transport=transport
+    ) as client:
         resp = await client.post(
             f"{settings.njinet_backend_url}/internal/agent/reply",
             headers={"njin-secret-key": settings.njin_secret_key},

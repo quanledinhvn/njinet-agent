@@ -23,18 +23,8 @@ def make_transport(
     return httpx.MockTransport(handler)
 
 
-real_async_client = httpx.AsyncClient
-
-
-async def test_send_reply_posts_to_callback_url(
-    monkeypatch, settings, recorded_request
-):
+async def test_send_reply_posts_to_callback_url(settings, recorded_request):
     transport = make_transport(recorded_request)
-    monkeypatch.setattr(
-        httpx,
-        "AsyncClient",
-        lambda *a, **k: real_async_client(*a, **{**k, "transport": transport}),
-    )
 
     await send_reply(
         settings,
@@ -44,6 +34,7 @@ async def test_send_reply_posts_to_callback_url(
         request_id="req-1",
         status="final",
         text="done",
+        transport=transport,
     )
 
     expected_url = f"{settings.njinet_backend_url}/internal/agent/reply"
@@ -59,15 +50,8 @@ async def test_send_reply_posts_to_callback_url(
     }
 
 
-async def test_send_reply_raises_on_server_error(
-    monkeypatch, settings, recorded_request
-):
+async def test_send_reply_raises_on_server_error(settings, recorded_request):
     transport = make_transport(recorded_request, status_code=500)
-    monkeypatch.setattr(
-        httpx,
-        "AsyncClient",
-        lambda *a, **k: real_async_client(*a, **{**k, "transport": transport}),
-    )
 
     with pytest.raises(httpx.HTTPStatusError):
         await send_reply(
@@ -78,4 +62,5 @@ async def test_send_reply_raises_on_server_error(
             request_id="req-1",
             status="error",
             text="boom",
+            transport=transport,
         )
