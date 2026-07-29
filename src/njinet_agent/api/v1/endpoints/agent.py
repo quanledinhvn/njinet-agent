@@ -18,6 +18,15 @@ async def invoke(
     req: InvokeReq,
     pool: ArqRedis = Depends(get_arq_pool),
 ) -> InvokeResponse:
-    await enqueue_run(pool, req.roomId, req.actorId, req.text, req.jwt, req.requestId)
+    await enqueue_run(
+        pool,
+        req.roomId,
+        req.actorId,
+        req.agentId,
+        req.agentUsername,
+        req.text,
+        req.jwt,
+        req.requestId,
+    )
 
     return InvokeResponse(status="accepted", runId=req.requestId)

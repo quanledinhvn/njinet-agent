@@ -1,14 +1,31 @@
-from redis.asyncio import Redis
+from typing import Literal
 
-from njinet_agent.services.events.types import AgentEvent
+import httpx
 
-
-def channel_for(room_id: str) -> str:
-  return f"room:{room_id}"
-
-def encode_event(event: AgentEvent) -> str:
-  return event.model_dump_json()
+from njinet_agent.core.config import Settings
 
 
-async def publish(redis: Redis, room_id: str, event: AgentEvent) -> None:
-  await redis.publish(channel_for(room_id), encode_event(event))
+async def send_reply(
+    settings: Settings,
+    *,
+    room_id: str,
+    agent_id: str,
+    agent_username: str,
+    request_id: str,
+    status: Literal["final", "error"],
+    text: str,
+) -> None:
+    async with httpx.AsyncClient(timeout=settings.callback_timeout) as client:
+        resp = await client.post(
+            f"{settings.njinet_backend_url}/internal/agent/reply",
+            headers={"njin-secret-key": settings.njin_secret_key},
+            json={
+                "roomId": room_id,
+                "agentId": agent_id,
+                "agentUsername": agent_username,
+                "requestId": request_id,
+                "status": status,
+                "text": text,
+            },
+        )
+        resp.raise_for_status()

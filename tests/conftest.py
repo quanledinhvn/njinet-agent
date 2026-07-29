@@ -20,37 +20,21 @@ class FakePool:
         return object()
 
 
-class FakeRedis:
-    """Fake Redis that records published messages."""
-
-    def __init__(self):
-        self.published = []
-
-    async def publish(self, channel, payload):
-        self.published.append((channel, payload))
-
-
 @pytest.fixture
 def settings() -> Settings:
     return Settings(
-        service_token="test-token",
-        nest_url="http://nest:3001",
+        njin_secret_key="test-token",
+        njinet_backend_url="http://nest:3001",
         redis_url="redis://localhost:6379",
         database_url="postgresql://localhost/db",
         llm_api_key="key",
-        llm_base_url="https://api.deepseek.com",
-        llm_model="deepseek-chat",
+        llm_model="gpt-4o-mini",
     )
 
 
 @pytest.fixture
 def fake_pool() -> FakePool:
     return FakePool()
-
-
-@pytest.fixture
-def fake_redis() -> FakeRedis:
-    return FakeRedis()
 
 
 @pytest.fixture

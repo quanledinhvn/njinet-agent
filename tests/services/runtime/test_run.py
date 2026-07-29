@@ -1,4 +1,3 @@
-import json
 from contextlib import asynccontextmanager
 
 import pytest
@@ -33,6 +32,18 @@ def graph() -> FakeGraph:
 
 
 @pytest.fixture
+def sent_replies(monkeypatch) -> list:
+    """Records the kwargs of every send_reply call."""
+    calls: list = []
+
+    async def fake_send_reply(settings, **kwargs):
+        calls.append(kwargs)
+
+    monkeypatch.setattr(run_module, "send_reply", fake_send_reply)
+    return calls
+
+
+@pytest.fixture
 def patched_run(monkeypatch, graph) -> FakeGraph:
     """Replace the LLM, MCP tools and checkpointer with fakes."""
     monkeypatch.setattr(run_module, "load_tools", lambda *a, **k: _async_return([]))
@@ -42,30 +53,38 @@ def patched_run(monkeypatch, graph) -> FakeGraph:
     return graph
 
 
-async def test_publishes_final_event(settings, fake_redis, patched_run):
+async def test_publishes_final_event(settings, sent_replies, patched_run):
     await run_agent(
         settings=settings,
-        redis=fake_redis,
         room_id="r",
         actor_id="u",
+        agent_id="agent-1",
+        agent_username="agent-bot",
         text="hi",
         jwt="j",
+        request_id="req-1",
     )
 
-    assert len(fake_redis.published) == 1
-    channel, payload = fake_redis.published[0]
-    assert channel == "room:r"
-    assert json.loads(payload) == {"type": "final", "data": {"text": "done"}}
+    assert len(sent_replies) == 1
+    call = sent_replies[0]
+    assert call["status"] == "final"
+    assert call["text"] == "done"
+    assert call["agent_id"] == "agent-1"
+    assert call["agent_username"] == "agent-bot"
 
 
-async def test_passes_thread_id_and_recursion_limit(settings, fake_redis, patched_run):
+async def test_passes_thread_id_and_recursion_limit(
+    settings, sent_replies, patched_run
+):
     await run_agent(
         settings=settings,
-        redis=fake_redis,
         room_id="r",
         actor_id="u",
+        agent_id="agent-1",
+        agent_username="agent-bot",
         text="hi",
         jwt="j",
+        request_id="req-1",
     )
 
     state, cfg = patched_run.calls[0]
@@ -75,7 +94,7 @@ async def test_passes_thread_id_and_recursion_limit(settings, fake_redis, patche
 
 
 async def test_publishes_error_event_on_failure(
-    settings, fake_redis, monkeypatch, patched_run
+    settings, sent_replies, monkeypatch, patched_run
 ):
     def boom(*args, **kwargs):
         raise RuntimeError("mcp down")
@@ -84,13 +103,14 @@ async def test_publishes_error_event_on_failure(
 
     await run_agent(
         settings=settings,
-        redis=fake_redis,
         room_id="r",
         actor_id="u",
+        agent_id="agent-1",
+        agent_username="agent-bot",
         text="hi",
         jwt="j",
+        request_id="req-1",
     )
 
-    channel, payload = fake_redis.published[0]
-    assert channel == "room:r"
-    assert json.loads(payload) == {"type": "error", "data": {"message": "mcp down"}}
+    call = sent_replies[0]
+    assert call["status"] == "error"

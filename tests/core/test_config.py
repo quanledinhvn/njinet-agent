@@ -6,13 +6,12 @@ from njinet_agent.core.config import Settings
 
 def test_settings_loads_from_env():
     settings = Settings(
-        service_token="tok",
-        nest_url="http://nest:3001",
+        njin_secret_key="tok",
+        njinet_backend_url="http://nest:3001",
         redis_url="redis://localhost:6379",
         database_url="postgresql://localhost/db",
         llm_api_key="key",
-        llm_base_url="https://api.deepseek.com",
-        llm_model="deepseek-chat",
+        llm_model="gpt-4o-mini",
     )
     assert settings.recursion_limit == 25
 

@@ -11,9 +11,10 @@ INVOKE_URL = "/api/v1/agent/invoke"
 
 PAYLOAD = {
     "roomId": "r",
-    "threadId": "room:r",
     "text": "hi",
     "actorId": "u",
+    "agentId": "agent-1",
+    "agentUsername": "agent-bot",
     "requestId": "req-1",
     "jwt": "j",
 }
@@ -32,11 +33,19 @@ def test_invoke_enqueues_job(client, fake_pool):
     assert len(fake_pool.jobs) == 1
     args, kwargs = fake_pool.jobs[0]
     assert args[0] == "run_agent_job"
-    assert kwargs["_job_id"] == "room:r"
+    assert kwargs["_job_id"] == "room:r:req-1"
 
 
 def test_invoke_rejects_invalid_body(client):
     resp = client.post(INVOKE_URL, json={"roomId": "r"})
+
+    assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "validation_error"
+
+
+def test_invoke_rejects_missing_agent_id(client):
+    payload = {k: v for k, v in PAYLOAD.items() if k != "agentId"}
+    resp = client.post(INVOKE_URL, json=payload)
 
     assert resp.status_code == 422
     assert resp.json()["error"]["code"] == "validation_error"
@@ -53,7 +62,7 @@ def auth_client(settings, fake_pool) -> TestClient:
     return TestClient(app)
 
 
-@pytest.mark.parametrize("headers", [{}, {"X-Service-Token": "wrong"}])
+@pytest.mark.parametrize("headers", [{}, {"njin-secret-key": "wrong"}])
 def test_invoke_requires_valid_service_token(auth_client, fake_pool, headers):
     resp = auth_client.post(INVOKE_URL, json=PAYLOAD, headers=headers)
 
@@ -63,7 +72,7 @@ def test_invoke_requires_valid_service_token(auth_client, fake_pool, headers):
 
 def test_invoke_accepts_valid_service_token(auth_client, settings):
     resp = auth_client.post(
-        INVOKE_URL, json=PAYLOAD, headers={"X-Service-Token": settings.service_token}
+        INVOKE_URL, json=PAYLOAD, headers={"njin-secret-key": settings.njin_secret_key}
     )
 
     assert resp.status_code == 200
