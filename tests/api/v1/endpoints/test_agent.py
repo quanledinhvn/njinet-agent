@@ -2,10 +2,13 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from njinet_agent.api.deps import get_arq_pool
-from njinet_agent.api.v1.router import api_router
 from njinet_agent.core.config import get_settings
-from njinet_agent.core.exceptions import register_exception_handlers
+from njinet_agent.infrastructure.queue.arq import ArqAdminChatQueue
+from njinet_agent.presentation.http.api.agent import router
+from njinet_agent.presentation.http.dependencies import get_admin_chat_queue
+from njinet_agent.presentation.http.exception_handlers import (
+    register_exception_handlers,
+)
 
 INVOKE_URL = "/api/v1/agent/invoke"
 
@@ -13,7 +16,7 @@ PAYLOAD = {
     "roomId": "r",
     "text": "hi",
     "actorId": "u",
-    "agentId": "agent-1",
+    "agentId": "room-admin",
     "agentUsername": "agent-bot",
     "requestId": "req-1",
     "jwt": "j",
@@ -32,7 +35,7 @@ def test_invoke_enqueues_job(client, fake_pool):
 
     assert len(fake_pool.jobs) == 1
     args, kwargs = fake_pool.jobs[0]
-    assert args[0] == "run_agent_job"
+    assert args[0] == "run_admin_chat_job"
     assert kwargs["_job_id"] == "room:r:req-1"
 
 
@@ -56,8 +59,10 @@ def auth_client(settings, fake_pool) -> TestClient:
     """App keeping the real service_auth, to exercise the auth layer."""
     app = FastAPI()
     register_exception_handlers(app)
-    app.include_router(api_router, prefix=settings.api_v1_prefix)
-    app.dependency_overrides[get_arq_pool] = lambda: fake_pool
+    app.include_router(router, prefix=settings.api_v1_prefix)
+    app.dependency_overrides[get_admin_chat_queue] = lambda: ArqAdminChatQueue(
+        fake_pool
+    )
     app.dependency_overrides[get_settings] = lambda: settings
     return TestClient(app)
 

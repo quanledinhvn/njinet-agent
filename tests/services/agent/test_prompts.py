@@ -1,4 +1,4 @@
-from njinet_agent.services.agent.prompts import ORCHESTRATOR_SYSTEM_PROMPT
+from njinet_agent.agents.room_admin.prompt import ORCHESTRATOR_SYSTEM_PROMPT
 
 TOOL_NAMES = (
     "list_members",

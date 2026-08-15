@@ -1,9 +1,8 @@
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from njinet_agent.core.exceptions import (
-    AgentError,
-    EnqueueError,
+from njinet_agent.application.errors import AgentError, EnqueueError
+from njinet_agent.presentation.http.exception_handlers import (
     register_exception_handlers,
 )
 

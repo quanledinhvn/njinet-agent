@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="vi" data-theme="business">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>njinet-agent · Clean Architecture audit</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daisyui@5.5.19/daisyui.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daisyui@5.5.19/themes.css">
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.2.4/dist/index.global.js"></script>
+    <style>
+      *, *::before, *::after { box-sizing: border-box; }
+      :where(.grid, .flex) > * { min-width: 0; }
+      :where(p, h1, h2, h3, li, td, th, code, .badge) { overflow-wrap: anywhere; }
+      .evidence { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .78rem; }
+    </style>
+    <script type="module">
+      import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.15.0/dist/mermaid.esm.min.mjs";
+      const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
+      const paint = document.createElement("canvas").getContext("2d");
+      function toRgba(color) {
+        paint.clearRect(0, 0, 1, 1); paint.fillStyle = "#000"; paint.fillStyle = color;
+        paint.fillRect(0, 0, 1, 1); return paint.getImageData(0, 0, 1, 1).data;
+      }
+      function composite(f, b) {
+        const fa=f[3]/255, ba=b[3]/255, a=fa+ba*(1-fa); if (!a) return [0,0,0,0];
+        return [(f[0]*fa+b[0]*ba*(1-fa))/a,(f[1]*fa+b[1]*ba*(1-fa))/a,(f[2]*fa+b[2]*ba*(1-fa))/a,a*255];
+      }
+      function pageIsDark() {
+        const root=toRgba(getComputedStyle(document.documentElement).backgroundColor);
+        const body=toRgba(getComputedStyle(document.body).backgroundColor);
+        const [r,g,b,a]=composite(body,root);
+        return a ? (0.2126*r+0.7152*g+0.0722*b)/255 < .5 : darkQuery.matches;
+      }
+      const diagrams=[...document.querySelectorAll(".mermaid")].map(el=>({el,src:el.textContent}));
+      let applied, rendering=false, queued=false;
+      function queueRender(){queued=true;if(!rendering)void render();}
+      async function render(){rendering=true;try{while(queued){queued=false;const theme=pageIsDark()?"dark":"default";if(theme===applied)continue;mermaid.initialize({startOnLoad:false,theme,securityLevel:"strict"});for(const {el,src} of diagrams){el.removeAttribute("data-processed");el.textContent=src;}await mermaid.run({nodes:diagrams.map(d=>d.el)});applied=theme;}}finally{rendering=false;if(queued)queueRender();}}
+      if(document.readyState==="complete")queueRender();else window.addEventListener("load",queueRender,{once:true});
+      new MutationObserver(queueRender).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme","class","style"]});
+      darkQuery.addEventListener("change",queueRender);
+    </script>
+  </head>
+  <body class="min-h-screen bg-base-200 text-base-content">
+    <main class="mx-auto max-w-7xl p-5 md:p-10">
+      <header class="mb-8">
+        <div class="flex flex-wrap items-center gap-3">
+          <span class="badge badge-warning badge-lg">CLEAN-ISH, CHƯA CLEAN</span>
+          <span class="text-sm opacity-60">Audit working tree · 14 Aug 2026</span>
+        </div>
+        <h1 class="mt-4 max-w-5xl text-4xl font-black tracking-tight md:text-6xl">Layer đã đúng hướng, nhưng contract multi-agent chưa được thực thi.</h1>
+        <p class="mt-4 max-w-4xl text-lg opacity-70">Application layer đã độc lập framework và dùng Protocol đúng chỗ. Tuy nhiên <code>agentId</code> hiện không route workflow, presentation còn gọi thẳng infrastructure, và composition/config vẫn có side effect ở import time.</p>
+      </header>
+
+      <section class="stats stats-vertical w-full bg-base-100 shadow lg:stats-horizontal">
+        <div class="stat"><div class="stat-title">Verification</div><div class="stat-value text-success">34 pass</div><div class="stat-desc">pytest · 1 dependency warning</div></div>
+        <div class="stat"><div class="stat-title">Static quality</div><div class="stat-value text-success">Ruff clean</div><div class="stat-desc">git diff --check clean</div></div>
+        <div class="stat"><div class="stat-title">Critical gap</div><div class="stat-value text-warning">agentId ignored</div><div class="stat-desc">unknown ID still reaches room_admin</div></div>
+      </section>
+
+      <section class="mt-8 grid gap-6 lg:grid-cols-[1.2fr_.8fr]">
+        <article class="card card-border bg-base-100 shadow"><div class="card-body">
+          <h2 class="card-title text-2xl">Dependency graph thực tế</h2>
+          <pre class="mermaid mt-3 overflow-auto">flowchart TD
+  HTTP["presentation/http/routes.py"] --> APP["application/admin_chat.py"]
+  HTTP --> QUEUE["infrastructure/queue/arq.py"]
+  WORKER["presentation/worker.py"] --> APP
+  WORKER --> AGENTADAPTER["infrastructure/agents/admin_chat.py"]
+  WORKER --> CALLBACK["infrastructure/callbacks/nestjs.py"]
+  AGENTADAPTER --> WORKFLOW["agents/room_admin/workflow.py"]
+  AGENTADAPTER --> LLM["infrastructure/llm"]
+  AGENTADAPTER --> MCP["infrastructure/mcp"]
+  MAIN["main.py composition"] --> HTTP
+  MAIN --> WORKER
+  HTTP -. "outer → outer coupling" .-> QUEUE
+          </pre>
+          <p class="text-sm opacity-60">Đường nét đứt là điểm lệch Dependency Rule rõ nhất: controller biết concrete ARQ adapter.</p>
+        </div></article>
+        <article class="card bg-warning text-warning-content shadow"><div class="card-body">
+          <h2 class="card-title text-2xl">Kết luận ngắn</h2>
+          <p class="text-xl font-semibold">Chưa đạt Clean Architecture nghiêm ngặt.</p>
+          <p>Đã có lõi application testable và adapter tách khá tốt. Không cần tạo thêm <code>domain/</code>, repository hay entity giả. Chỉ cần hoàn tất đúng các boundary đang có.</p>
+          <div class="mt-3 rounded-box bg-base-100/15 p-4 text-sm"><strong>Target hợp lý:</strong> pragmatic Clean Architecture cho service orchestration, không phải textbook 4 vòng.</div>
+        </div></article>
+      </section>
+
+      <section class="mt-8">
+        <h2 class="text-3xl font-bold">Findings theo ưu tiên</h2>
+        <p class="mt-2 opacity-65">Ưu tiên dựa trên behavior/risk trước, folder naming sau.</p>
+        <div class="mt-4 overflow-x-auto rounded-box border border-base-content/10 bg-base-100 shadow">
+          <table class="table table-zebra">
+            <thead><tr><th>Ưu tiên</th><th>Finding</th><th>Evidence</th><th>Update tối thiểu</th></tr></thead>
+            <tbody>
+              <tr><td><span class="badge badge-error">P0</span></td><td><strong><code>agentId</code> không route workflow.</strong> Worker luôn tạo <code>LangGraphAdminChatAgent</code>; unknown ID vẫn chạy room-admin.</td><td class="evidence">presentation/worker.py:27-30<br>infrastructure/agents/admin_chat.py:23</td><td>Thêm static registry <code>{"room-admin": run_workflow}</code>; resolve trước khi load MCP/LLM; test unknown ID.</td></tr>
+              <tr><td><span class="badge badge-warning">P1</span></td><td><strong>Config injection không nhất quán.</strong> <code>create_app(settings)</code> nhận settings nhưng lifespan và <code>WorkerSettings</code> lại gọi global cache.</td><td class="evidence">main.py:23-29,45-48<br>presentation/worker.py:39</td><td>Dùng cùng một settings instance trong lifespan/wiring; bỏ đọc env ở class import time.</td></tr>
+              <tr><td><span class="badge badge-warning">P1</span></td><td><strong>Docs đi trước code.</strong> Tài liệu nói có <code>registry.py</code>, <code>commands.py</code>, <code>execute_agent.py</code>, nhưng working tree không có.</td><td class="evidence">docs/project-structure.md<br>docs/system-design.md<br>rg --files src</td><td>Hoàn tất registry/use case hoặc sửa docs về trạng thái thật; không để hai source of truth.</td></tr>
+              <tr><td><span class="badge badge-info">P2</span></td><td><strong>Presentation phụ thuộc concrete infrastructure.</strong> Route import trực tiếp ARQ enqueue.</td><td class="evidence">presentation/http/routes.py:6,29</td><td>Đưa enqueue command/port vào application và wire adapter ở composition root. Chỉ một Protocol là đủ.</td></tr>
+              <tr><td><span class="badge badge-info">P2</span></td><td><strong><code>core</code> không phải inner core.</strong> Exceptions, auth và middleware import FastAPI/Starlette.</td><td class="evidence">core/exceptions.py:3-6<br>core/security.py:3<br>core/middleware.py:5-6</td><td>Move HTTP-specific code sang <code>presentation/http</code>; giữ <code>core</code> chỉ cho code framework-independent, hoặc đổi tên rõ nghĩa.</td></tr>
+              <tr><td><span class="badge badge-info">P2</span></td><td><strong>Dead infra sau refactor.</strong> Postgres/checkpointer packages, <code>database_url</code>, compose Postgres và libpq không còn caller.</td><td class="evidence">pyproject.toml<br>core/config.py:14<br>docker-compose.yml:6-12<br>Dockerfile:5-8</td><td>Nếu memory/checkpoint không còn scope: xóa cả cụm. Nếu còn: wire lại có test; không để half-feature.</td></tr>
+              <tr><td><span class="badge badge-ghost">P3</span></td><td><strong>Test tree còn tên layer cũ.</strong> Tests import module mới nhưng nằm dưới <code>tests/services</code> và <code>tests/api/v1</code>.</td><td class="evidence">tests/services/*<br>tests/api/v1/*</td><td>Move theo owner hiện tại; thêm một architecture import check nhỏ nếu boundary là yêu cầu lâu dài.</td></tr>
+              <tr><td><span class="badge badge-ghost">P3</span></td><td><strong>Contract noise.</strong> <code>actorId</code> được validate rồi bỏ; console script chỉ in “Hello”.</td><td class="evidence">http/schemas.py:7<br>http/routes.py:21-28<br>__init__.py:1-2</td><td>Document/remove field khi contract cho phép; xóa script hoặc trỏ vào entrypoint thật.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="mt-8 grid gap-6 lg:grid-cols-2">
+        <article class="card card-border bg-base-100"><div class="card-body">
+          <h2 class="card-title text-2xl">Cái đang làm đúng — giữ nguyên</h2>
+          <ul class="list-disc space-y-2 pl-5">
+            <li><code>application/admin_chat.py</code> chỉ dùng stdlib, model và Protocol nằm đúng phía consumer.</li>
+            <li>HTTP schema được map sang application dataclass; Pydantic không rò vào use case.</li>
+            <li>LangGraph, MCP, OpenAI, httpx và ARQ nằm ngoài application.</li>
+            <li>Application test dùng fake nhỏ, không cần framework DI/container.</li>
+            <li>Không có repository/model folder rỗng “cho tương lai” — đúng YAGNI.</li>
+          </ul>
+        </div></article>
+        <article class="card card-border bg-base-100"><div class="card-body">
+          <h2 class="card-title text-2xl">Current → target tối thiểu</h2>
+          <div class="overflow-x-auto"><table class="table table-sm"><thead><tr><th>Current</th><th>Target</th></tr></thead><tbody>
+            <tr><td>Route → ARQ concrete</td><td>Route → enqueue port/use case ← ARQ</td></tr>
+            <tr><td>Worker → fixed room-admin</td><td>Worker → execute use case → registry</td></tr>
+            <tr><td>Global settings at import</td><td>One settings instance composed at startup</td></tr>
+            <tr><td>Unused Postgres stack</td><td>Delete, or wire with an explicit requirement</td></tr>
+            <tr><td>Docs describe future state</td><td>Docs match committed source</td></tr>
+          </tbody></table></div>
+        </div></article>
+      </section>
+
+      <section class="mt-8 card bg-base-100 shadow"><div class="card-body">
+        <h2 class="card-title text-2xl">Thứ tự update đề xuất</h2>
+        <ul class="steps steps-vertical w-full lg:steps-horizontal">
+          <li class="step step-error">Fix registry + unknown ID test</li>
+          <li class="step step-warning">Unify composition/settings</li>
+          <li class="step step-info">Break route → ARQ coupling</li>
+          <li class="step step-info">Delete dead Postgres/provider code</li>
+          <li class="step">Move FastAPI core + tests/docs</li>
+        </ul>
+        <div role="alert" class="alert alert-soft alert-info mt-6"><span><strong>Không làm:</strong> dựng DI container, base repository, abstract factory, event bus hoặc domain folder rỗng. Chưa có nhu cầu thực tế.</span></div>
+      </div></section>
+
+      <footer class="mt-8 border-t border-base-content/10 pt-5 text-sm opacity-55">Evidence collected from current working tree, including uncommitted files. Commands: <code>.venv/bin/pytest -q</code>, <code>.venv/bin/ruff check src tests</code>, <code>git diff --check</code>, import/caller searches via <code>rg</code>.</footer>
+    </main>
+  </body>
+</html>

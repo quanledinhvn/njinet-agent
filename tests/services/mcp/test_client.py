@@ -1,4 +1,4 @@
-from njinet_agent.services.mcp.client import build_headers
+from njinet_agent.infrastructure.mcp.client import build_headers
 
 
 class FakeSettings:

@@ -10,7 +10,6 @@ class Settings(BaseSettings):
     njin_secret_key: str
     njinet_backend_url: str
     redis_url: str
-    database_url: str
     llm_api_key: SecretStr
     llm_model: str
     recursion_limit: int = 25

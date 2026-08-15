@@ -1,6 +1,7 @@
 from langchain_core.messages import AIMessage
 from langchain_core.tools import tool
-from njinet_agent.services.agent.graph import build_graph
+
+from njinet_agent.agents.room_admin.workflow import RoomAdminWorkflow
 
 
 @tool
@@ -29,10 +30,10 @@ class FakeLLM:
 
 
 async def test_graph_runs_agent_tool_loop():
-    graph = build_graph(FakeLLM(), [echo])
+    graph = RoomAdminWorkflow().build_graph(FakeLLM(), [echo])
 
     result = await graph.ainvoke({"messages": [("user", "hello")]}, {})
-    
+
     contents = [m.content for m in result["messages"]]
     assert "echo: hi" in contents
     assert "done" in contents

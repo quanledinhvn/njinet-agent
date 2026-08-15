@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="vi" data-theme="corporate">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>njinet-agent · Architecture review</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@5" rel="stylesheet" type="text/css" />
+    <script type="module">
+      import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+      mermaid.initialize({ startOnLoad: true, theme: "neutral", flowchart: { useMaxWidth: true } });
+    </script>
+  </head>
+  <body class="min-h-screen bg-base-200 text-base-content">
+    <main class="mx-auto max-w-6xl p-6 md:p-10">
+      <header class="mb-8">
+        <p class="text-sm font-semibold tracking-widest text-primary">ARCHITECTURE REVIEW · 13 AUG 2026</p>
+        <h1 class="mt-2 text-4xl font-bold tracking-tight">Không nên chuyển sang Clean Architecture toàn phần.</h1>
+        <p class="mt-3 max-w-3xl text-lg text-base-content/70">Giữ cấu trúc feature/runtime hiện tại. Sửa drift giữa code và tài liệu, rồi chỉ tách một use case khi orchestration bắt đầu có biến thể thực sự.</p>
+      </header>
+
+      <section class="grid gap-5 md:grid-cols-3">
+        <article class="card border border-success/30 bg-base-100 shadow-sm"><div class="card-body"><p class="text-sm text-base-content/60">Quy mô</p><p class="text-3xl font-bold">~250 dòng source</p><p class="text-sm">Không có module source nào dài quá 51 dòng.</p></div></article>
+        <article class="card border border-success/30 bg-base-100 shadow-sm"><div class="card-body"><p class="text-sm text-base-content/60">Ranh giới hiện tại</p><p class="text-3xl font-bold">Đủ rõ</p><p class="text-sm">API mỏng → ARQ job → orchestration → adapter ngoài.</p></div></article>
+        <article class="card border border-warning/40 bg-base-100 shadow-sm"><div class="card-body"><p class="text-sm text-base-content/60">Nợ cần ưu tiên</p><p class="text-3xl font-bold">Docs drift</p><p class="text-sm">PRD/system design còn mô tả Redis Pub/Sub và checkpoint đã bỏ.</p></div></article>
+      </section>
+
+      <section class="mt-8 grid gap-6 lg:grid-cols-[1.35fr_.65fr]">
+        <article class="card bg-base-100 shadow-sm"><div class="card-body"><h2 class="card-title text-2xl">Luồng thực tế trong code</h2><pre class="mermaid mt-3 min-w-0 overflow-auto">flowchart LR
+  Nest[NestJS] -->|POST /api/v1/agent/invoke| API[FastAPI endpoint]
+  API -->|enqueue| Q[(Redis / ARQ)]
+  Q --> Worker[run_agent_job]
+  Worker --> Run[run_agent]
+  Run --> MCP[MCP tools / NestJS]
+  Run --> LLM[ChatOpenAI]
+  Run -->|POST final or error| Callback[NestJS /internal/agent/reply]
+  Run -. builds .-> Graph[LangGraph agent ↔ tools]
+          </pre><p class="text-sm text-base-content/60">`services/runtime/run.py` là composition root của một request; `agent`, `mcp`, và `events` đã đóng vai adapters nhỏ, tách theo trách nhiệm.</p></div></article>
+        <aside class="card bg-primary text-primary-content shadow-sm"><div class="card-body"><h2 class="card-title">Kết luận</h2><p class="text-xl font-semibold">Không có domain core độc lập để Clean Architecture bảo vệ.</p><p>Đây là service orchestration: giá trị nằm ở LangGraph, MCP, queue và callback. Bọc mỗi thứ vào port/interface lúc này tạo thêm file và injection mà không giảm coupling thực tế.</p></div></aside>
+      </section>
+
+      <section class="mt-8 card bg-base-100 shadow-sm"><div class="card-body"><h2 class="card-title text-2xl">So sánh quyết định</h2><div class="overflow-x-auto"><table class="table"><thead><tr><th></th><th>Giữ cấu trúc hiện tại + chỉnh nhỏ</th><th>Clean Architecture toàn phần</th></tr></thead><tbody>
+        <tr><th>Phù hợp hiện tại</th><td><span class="badge badge-success">Có</span> Một luồng use case, một adapter mỗi loại.</td><td><span class="badge badge-error">Chưa</span> Ports/use-cases/entities phần lớn chỉ có 1 implementation.</td></tr>
+        <tr><th>Chi phí</th><td>Thấp: đồng bộ docs và bỏ dead code có chủ đích.</td><td>Cao: đổi import, DI, DTO mapping, test doubles; không thêm behavior.</td></tr>
+        <tr><th>Lợi ích</th><td>Giữ dependency direction đủ dễ đọc và test được bằng monkeypatch/fake.</td><td>Chỉ đáng giá khi có nhiều provider/transport hoặc nghiệp vụ riêng không thuộc LangGraph.</td></tr>
+        <tr><th>Chọn</th><td class="font-semibold text-success">✓ Chọn phương án này</td><td>Hoãn</td></tr>
+      </tbody></table></div></div></section>
+
+      <section class="mt-8 grid gap-6 md:grid-cols-2">
+        <article class="card border border-warning/30 bg-base-100 shadow-sm"><div class="card-body"><h2 class="card-title">Việc nên làm trước</h2><ol class="list-decimal space-y-2 pl-5 text-sm"><li>Chọn code là source of truth, cập nhật hoặc archive các docs/spec cũ về Redis Pub/Sub, streaming và checkpointer.</li><li>Quyết định rõ checkpoint có còn trong scope. Nếu không: xóa `runtime/checkpointer.py`, dependency Postgres checkpoint và biến môi trường DB; nếu có: wiring lại vào `run_agent` với `thread_id`.</li><li>Sửa hygiene: test config bị ảnh hưởng bởi `.env` cục bộ; `ruff check` có một import chưa sort.</li></ol></div></article>
+        <article class="card border border-info/30 bg-base-100 shadow-sm"><div class="card-body"><h2 class="card-title">Ngưỡng để tách use case</h2><ul class="list-disc space-y-2 pl-5 text-sm"><li>Thêm mode chạy khác (sync / scheduled / human approval) nhưng cùng rule nghiệp vụ.</li><li>Nhiều LLM, MCP backend hoặc callback transport cần switch theo tenant/runtime.</li><li>Policy nghiệp vụ độc lập xuất hiện: quota, audit, retry/idempotency, authorization orchestration.</li></ul><p class="mt-2 text-sm text-base-content/60">Khi đó, chỉ tách `application/run_agent.py` và các protocol cần thiết — không cần dựng full Clean Architecture trước.</p></div></article>
+      </section>
+
+      <section class="mt-8 card bg-base-100 shadow-sm"><div class="card-body"><h2 class="card-title text-2xl">Clean Architecture mỏng nếu cần áp dụng</h2><pre class="mt-3 overflow-auto rounded-box bg-neutral p-5 text-sm text-neutral-content"><code>src/njinet_agent/
+├── domain/                         # Chỉ rule/value object thật sự độc lập (có thể chưa cần)
+│   └── errors.py
+├── application/
+│   ├── ports.py                    # Protocol: ToolLoader, ReplySender, AgentRunner
+│   └── run_agent.py                # use case: RunAgent.execute(command)
+├── adapters/
+│   ├── inbound/http.py             # FastAPI router + Pydantic request/response
+│   ├── inbound/worker.py           # ARQ job → RunAgent
+│   ├── outbound/langgraph.py       # build graph + invoke
+│   ├── outbound/mcp.py             # MultiServerMCPClient
+│   └── outbound/backend.py         # httpx callback
+├── infrastructure/
+│   ├── config.py                   # Settings, wiring/composition root
+│   └── worker.py                   # WorkerSettings
+└── main.py                         # app lifespan + dependency wiring</code></pre><p class="mt-3 text-sm text-base-content/60">`domain/` rỗng là chấp nhận được; đừng tạo entity/repository giả. `application/ports.py` chỉ có các port cần thay thế hoặc cần fake trong test.</p></div></section>
+
+      <footer class="mt-8 text-sm text-base-content/55">Evidence: source + tests inspected; pytest: 31 pass, 1 fail (config reads local .env); ruff: 1 import-order finding.</footer>
+    </main>
+  </body>
+</html>

@@ -1,7 +1,7 @@
 import pytest
 from fastapi import HTTPException
 
-from njinet_agent.core.security import verify_service_token
+from njinet_agent.presentation.http.security import verify_service_token
 
 
 def test_accepts_matching_token():
