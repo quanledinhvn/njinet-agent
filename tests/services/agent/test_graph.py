@@ -1,7 +1,8 @@
 from langchain_core.messages import AIMessage
 from langchain_core.tools import tool
 
-from njinet_agent.agents.room_admin.workflow import RoomAdminWorkflow
+from njinet_agent.agents.room_admin.agent import LangGraphAdminChatAgent
+from njinet_agent.application.admin_chat import AdminChatRequest
 
 
 @tool
@@ -29,11 +30,23 @@ class FakeLLM:
         return AIMessage(content="done")
 
 
-async def test_graph_runs_agent_tool_loop():
-    graph = RoomAdminWorkflow().build_graph(FakeLLM(), [echo])
+async def test_agent_runs_tool_loop(settings):
+    llm = FakeLLM()
 
-    result = await graph.ainvoke({"messages": [("user", "hello")]}, {})
+    async def load_tools(received_settings, jwt):
+        assert received_settings is settings
+        assert jwt == "jwt"
+        return [echo]
 
-    contents = [m.content for m in result["messages"]]
-    assert "echo: hi" in contents
-    assert "done" in contents
+    agent = LangGraphAdminChatAgent(
+        settings,
+        llm_factory=lambda received_settings: llm,
+        tool_loader=load_tools,
+    )
+
+    reply = await agent.reply(
+        AdminChatRequest("room-1", "agent-1", "bot", "hello", "jwt", "request-1")
+    )
+
+    assert reply.text == "done"
+    assert llm.calls == 2

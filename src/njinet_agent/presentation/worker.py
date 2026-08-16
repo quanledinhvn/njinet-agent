@@ -5,9 +5,9 @@ from arq.cron import CronJob
 from arq.typing import StartupShutdown, WorkerCoroutine
 from arq.worker import Function
 
+from njinet_agent.agents.room_admin.agent import LangGraphAdminChatAgent
 from njinet_agent.application.admin_chat import AdminChatRequest, handle_admin_chat
 from njinet_agent.core.config import Settings, get_settings
-from njinet_agent.infrastructure.agents.admin_chat import LangGraphAdminChatAgent
 from njinet_agent.infrastructure.callbacks.nestjs import NestJsAdminChatReplySender
 
 Context = dict[str, Any]

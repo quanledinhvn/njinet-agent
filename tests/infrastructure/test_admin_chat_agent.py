@@ -1,45 +1,34 @@
-from njinet_agent.agents.room_admin.workflow import RoomAdminWorkflow
+from langchain_core.messages import AIMessage
+
+from njinet_agent.agents.room_admin.agent import LangGraphAdminChatAgent
 from njinet_agent.application.admin_chat import AdminChatRequest
-from njinet_agent.infrastructure.agents.admin_chat import LangGraphAdminChatAgent
 
 
-def test_agent_depends_on_workflow_protocol():
-    annotation = LangGraphAdminChatAgent.__annotations__["admin_workflow"]
-
-    assert annotation.__name__ == "AgentWorkflow"
-
-
-def test_agent_creates_its_own_room_admin_workflow(settings):
-    first = LangGraphAdminChatAgent(settings)
-    second = LangGraphAdminChatAgent(settings)
-
-    assert isinstance(first.admin_workflow, RoomAdminWorkflow)
-    assert first.admin_workflow is not second.admin_workflow
-
-
-async def test_agent_id_is_identity_not_workflow_selector(settings):
+async def test_agent_builds_reply_from_request_scoped_dependencies(settings):
     captured: dict = {}
 
     async def load_tools(received_settings, jwt):
         assert received_settings is settings
         assert jwt == "jwt"
-        return ["tool"]
+        return []
 
-    class Workflow:
-        async def invoke(self, llm, tools, text, recursion_limit):
-            captured.update(
-                llm=llm,
-                tools=tools,
-                text=text,
-                recursion_limit=recursion_limit,
-            )
-            return "done"
+    class LLM:
+        def bind_tools(self, tools):
+            captured["tools"] = tools
+            return self
+
+        async def ainvoke(self, messages):
+            captured["messages"] = messages
+            return AIMessage(content="done")
+
+    def build_llm(received_settings):
+        assert received_settings is settings
+        return LLM()
 
     agent = LangGraphAdminChatAgent(
         settings,
-        llm_factory=lambda received_settings: "model",
+        llm_factory=build_llm,
         tool_loader=load_tools,
-        admin_workflow=Workflow(),
     )
 
     reply = await agent.reply(
@@ -47,9 +36,5 @@ async def test_agent_id_is_identity_not_workflow_selector(settings):
     )
 
     assert reply.text == "done"
-    assert captured == {
-        "llm": "model",
-        "tools": ["tool"],
-        "text": "hi",
-        "recursion_limit": settings.recursion_limit,
-    }
+    assert captured["tools"] == []
+    assert captured["messages"][-1].content == "hi"
