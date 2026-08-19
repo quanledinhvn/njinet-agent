@@ -8,6 +8,14 @@ TOOL_NAMES = (
     "remove_sub_agents",
 )
 FORBIDDEN = ("resolve_members", "resolve_catalog", "all=true", "at most 10 words")
+SECTIONS = (
+    "# Role and scope",
+    "# Tool selection",
+    "# Target resolution",
+    "# Confirmation policy",
+    "# Execution rules",
+    "# Response rules",
+)
 
 
 def test_prompt_contains_all_tool_names():
@@ -18,3 +26,8 @@ def test_prompt_contains_all_tool_names():
 def test_prompt_does_not_contain_old_names_or_placeholder():
     for forbidden in FORBIDDEN:
         assert forbidden not in ORCHESTRATOR_SYSTEM_PROMPT
+
+
+def test_prompt_has_clear_sections_in_workflow_order():
+    positions = [ORCHESTRATOR_SYSTEM_PROMPT.index(section) for section in SECTIONS]
+    assert positions == sorted(positions)
