@@ -1,74 +1,55 @@
-from dataclasses import dataclass
-from typing import Annotated, TypedDict
+from dataclasses import dataclass, field
+from functools import cached_property
 
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import BaseMessage, HumanMessage
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.messages import HumanMessage
+from langchain_core.runnables import Runnable
 from langgraph.graph import END, StateGraph
-from langgraph.graph.message import add_messages
 from langgraph.graph.state import CompiledStateGraph
 
-from njinet_agent.agents.room_admin.agent import LLMFactory
+from njinet_agent.agents.types import LLMFactory
 from njinet_agent.core.config import Settings
 from njinet_agent.infrastructure.llm.openai import build_openai_llm
 
-
-class MessageGraph(TypedDict):
-    messages: Annotated[list[BaseMessage], add_messages]
-
-
-reflection_prompt = ChatPromptTemplate.from_messages(
-    [
-        (
-            "system",
-            (
-                "You are a viral twitter influencer grading a tweet. Generate "
-                "critique and recommendations for the user's tweet. Always "
-                "provide detailed recommendations, including requests for length, "
-                "virality, style, etc."
-            ),
-        ),
-        MessagesPlaceholder(variable_name="messages"),
-    ]
-)
-
-generation_prompt = ChatPromptTemplate.from_messages(
-    [
-        (
-            "system",
-            (
-                "You are a twitter techie influencer assistant tasked with writing "
-                "excellent twitter posts. Generate the best twitter post possible "
-                "for the user's request. If the user provides critique, respond with "
-                "a revised version of your previous attempts."
-            ),
-        ),
-        MessagesPlaceholder(variable_name="messages"),
-    ]
-)
+from .prompts import generation_prompt, reflection_prompt
+from .schemas import MessageGraph
 
 
 @dataclass
 class SimpleReflectionAgent:
     settings: Settings
     llm_factory: LLMFactory = build_openai_llm
+    _llm: BaseChatModel = field(init=False, repr=False)
 
-    def _build_graph(self, llm: BaseChatModel) -> CompiledStateGraph:
+    def __post_init__(self) -> None:
+        self._llm = self.llm_factory(self.settings)
+
+    @cached_property
+    def _generation_chain(self) -> Runnable:
+        return generation_prompt | self._llm
+
+    @cached_property
+    def _reflection_chain(self) -> Runnable:
+        return reflection_prompt | self._llm
+
+    @cached_property
+    def graph(self) -> CompiledStateGraph:
         REFLECT = "reflect"
         GENERATE = "generate"
-
-        generate_chain = generation_prompt | llm
-        reflect_chain = reflection_prompt | llm
 
         async def generation_node(state: MessageGraph):
             return {
                 "messages": [
-                    await generate_chain.ainvoke({"messages": state["messages"]})
+                    await self._generation_chain.ainvoke(
+                        {"messages": state["messages"]}
+                    )
                 ]
             }
 
         async def reflection_node(state: MessageGraph):
-            res = await reflect_chain.ainvoke({"messages": state["messages"]})
+            res = await self._reflection_chain.ainvoke(
+                {"messages": state["messages"]}
+            )
             return {"messages": [HumanMessage(content=res.content)]}
 
         def should_continue(state: MessageGraph):
@@ -87,8 +68,4 @@ class SimpleReflectionAgent:
         return builder.compile()
 
     async def invoke(self, message: MessageGraph):
-        llm = self.llm_factory(self.settings)
-
-        result = await self._build_graph(llm).ainvoke(message)
-
-        return result
+        return await self.graph.ainvoke(message)

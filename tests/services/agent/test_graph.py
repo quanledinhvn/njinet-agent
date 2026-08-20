@@ -48,3 +48,32 @@ async def test_agent_runs_tool_loop(settings):
 
     assert reply.text == "done"
     assert llm.i == 2
+
+
+async def test_agent_reuses_its_llm_across_requests(settings):
+    llm = FakeLLM(responses=[AIMessage(content="first"), AIMessage(content="second")])
+    builds = 0
+
+    def build_llm(_):
+        nonlocal builds
+        builds += 1
+        return llm
+
+    async def load_tools(_, __):
+        return []
+
+    agent = LangGraphAdminChatAgent(
+        settings=settings,
+        llm_factory=build_llm,
+        tool_loader=load_tools,
+    )
+
+    first = await agent.reply(
+        AdminChatRequest("room-1", "agent-1", "bot", "first", "jwt-1", "request-1")
+    )
+    second = await agent.reply(
+        AdminChatRequest("room-1", "agent-1", "bot", "second", "jwt-2", "request-2")
+    )
+
+    assert (first.text, second.text) == ("first", "second")
+    assert builds == 1
