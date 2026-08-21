@@ -15,15 +15,16 @@ def test_worker_settings_defines_optional_lifecycle_hooks():
 
 async def test_job_uses_settings_from_worker_context(monkeypatch, settings):
     captured = {}
+    agent = object()
 
     async def handle_admin_chat(request, *, agent, reply_sender):
-        captured["agent_settings"] = agent.settings
+        captured["agent"] = agent
         captured["sender_settings"] = reply_sender.settings
 
     monkeypatch.setattr(worker_module, "handle_admin_chat", handle_admin_chat)
 
     await run_admin_chat_job(
-        {"settings": settings},
+        {"settings": settings, "admin_chat_agent": agent},
         "room-1",
         "room-admin",
         "bot",
@@ -32,7 +33,7 @@ async def test_job_uses_settings_from_worker_context(monkeypatch, settings):
         "request-1",
     )
 
-    assert captured == {"agent_settings": settings, "sender_settings": settings}
+    assert captured == {"agent": agent, "sender_settings": settings}
 
 
 def test_job_id_is_per_request():

@@ -5,8 +5,8 @@ from arq.cron import CronJob
 from arq.typing import StartupShutdown, WorkerCoroutine
 from arq.worker import Function
 
-from njinet_agent.agents.room_admin.agent import LangGraphAdminChatAgent
 from njinet_agent.application.admin_chat import AdminChatRequest, handle_admin_chat
+from njinet_agent.application.admin_chat.ports import AdminChatAgent
 from njinet_agent.core.config import Settings, get_settings
 from njinet_agent.infrastructure.callbacks.nestjs import NestJsAdminChatReplySender
 
@@ -23,9 +23,10 @@ async def run_admin_chat_job(
     request_id: str,
 ) -> None:
     settings: Settings = ctx.get("settings") or get_settings()
+    agent: AdminChatAgent = ctx["admin_chat_agent"]
     await handle_admin_chat(
         AdminChatRequest(room_id, agent_id, agent_username, text, jwt, request_id),
-        agent=LangGraphAdminChatAgent(settings),
+        agent=agent,
         reply_sender=NestJsAdminChatReplySender(settings),
     )
 

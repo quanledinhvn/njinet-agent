@@ -45,3 +45,37 @@ def test_create_app_uses_injected_redis_settings(monkeypatch, settings):
     context = {}
     asyncio.run(captured["worker_type"].on_startup(context))
     assert context["settings"] is injected
+
+
+def test_worker_startup_injects_the_shared_llm_into_its_agent(monkeypatch, settings):
+    main_module = importlib.import_module("njinet_agent.main")
+    shared_llm = object()
+    captured = {}
+
+    class Pool:
+        async def aclose(self):
+            pass
+
+    class Worker:
+        async def async_run(self):
+            pass
+
+        async def close(self):
+            pass
+
+    async def create_pool(_):
+        return Pool()
+
+    def create_worker(worker_settings, *, handle_signals):
+        captured["worker_type"] = worker_settings
+        return Worker()
+
+    monkeypatch.setattr(main_module, "create_pool", create_pool)
+    monkeypatch.setattr(main_module, "create_worker", create_worker)
+
+    with TestClient(main_module.create_app(settings, llm=shared_llm)) as client:
+        assert client.app.state.llm is shared_llm
+
+    context = {}
+    asyncio.run(captured["worker_type"].on_startup(context))
+    assert context["admin_chat_agent"].llm is shared_llm

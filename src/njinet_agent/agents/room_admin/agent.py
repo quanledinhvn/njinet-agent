@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import SystemMessage
@@ -8,22 +8,17 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
 
 from njinet_agent.agents.room_admin.prompt import ORCHESTRATOR_SYSTEM_PROMPT
-from njinet_agent.agents.types import LLMFactory, ToolLoader
+from njinet_agent.agents.types import ToolLoader
 from njinet_agent.application.admin_chat import AdminChatReply, AdminChatRequest
 from njinet_agent.core.config import Settings
-from njinet_agent.infrastructure.llm.openai import build_openai_llm
 from njinet_agent.infrastructure.mcp.client import load_tools
 
 
 @dataclass
 class LangGraphAdminChatAgent:
     settings: Settings
-    llm_factory: LLMFactory = build_openai_llm
+    llm: BaseChatModel
     tool_loader: ToolLoader = load_tools
-    _llm: BaseChatModel = field(init=False, repr=False)
-
-    def __post_init__(self) -> None:
-        self._llm = self.llm_factory(self.settings)
 
     def _build_graph(
         self, llm: BaseChatModel, tools: list[BaseTool]
@@ -48,7 +43,7 @@ class LangGraphAdminChatAgent:
 
     async def reply(self, request: AdminChatRequest) -> AdminChatReply:
         tools = await self.tool_loader(self.settings, request.jwt)
-        result = await self._build_graph(self._llm, tools).ainvoke(
+        result = await self._build_graph(self.llm, tools).ainvoke(
             {"messages": [("user", request.text)]},
             {"recursion_limit": self.settings.recursion_limit},
         )

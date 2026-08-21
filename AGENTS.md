@@ -5,3 +5,5 @@
   only when Mermaid cannot express the relationship clearly.
 - Format long Python strings with parenthesized implicit concatenation; use
   explicit `\n` only where the generated string needs a line break.
+- For optional dependency injection, use an explicit `is None` check rather
+  than `value or default`.

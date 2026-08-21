@@ -11,7 +11,7 @@ async def test_agent_alternates_generation_and_reflection_until_limit(settings):
 
     agent = SimpleReflectionAgent(
         settings=settings,
-        llm_factory=lambda _: llm,
+        llm=llm,
     )
 
     result = await agent.invoke({"messages": [HumanMessage(content="Write a tweet")]})
@@ -40,16 +40,10 @@ async def test_agent_alternates_generation_and_reflection_until_limit(settings):
 
 async def test_agent_reuses_its_llm_across_invocations(settings):
     llm = FakeListChatModel(responses=["response"] * 14)
-    builds = 0
 
-    def build_llm(_):
-        nonlocal builds
-        builds += 1
-        return llm
-
-    agent = SimpleReflectionAgent(settings=settings, llm_factory=build_llm)
+    agent = SimpleReflectionAgent(settings=settings, llm=llm)
 
     await agent.invoke({"messages": [HumanMessage(content="First tweet")]})
     await agent.invoke({"messages": [HumanMessage(content="Second tweet")]})
 
-    assert builds == 1
+    assert agent.llm is llm

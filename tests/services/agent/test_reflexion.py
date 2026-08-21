@@ -16,6 +16,7 @@ def search_tool_factory(_: object) -> StructuredTool:
 def test_agent_continues_before_search_budget_is_reached(settings) -> None:
     agent = ReflexionAgent(
         settings=settings,
+        llm=object(),
         search_tool_factory=search_tool_factory,
         max_iterations=2,
     )
@@ -30,6 +31,7 @@ def test_agent_continues_before_search_budget_is_reached(settings) -> None:
 def test_agent_stops_when_search_budget_is_reached(settings) -> None:
     agent = ReflexionAgent(
         settings=settings,
+        llm=object(),
         search_tool_factory=search_tool_factory,
         max_iterations=2,
     )

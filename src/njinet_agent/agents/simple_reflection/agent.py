@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from functools import cached_property
 
 from langchain_core.language_models import BaseChatModel
@@ -7,9 +7,7 @@ from langchain_core.runnables import Runnable
 from langgraph.graph import END, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
-from njinet_agent.agents.types import LLMFactory
 from njinet_agent.core.config import Settings
-from njinet_agent.infrastructure.llm.openai import build_openai_llm
 
 from .prompts import generation_prompt, reflection_prompt
 from .schemas import MessageGraph
@@ -18,19 +16,15 @@ from .schemas import MessageGraph
 @dataclass
 class SimpleReflectionAgent:
     settings: Settings
-    llm_factory: LLMFactory = build_openai_llm
-    _llm: BaseChatModel = field(init=False, repr=False)
-
-    def __post_init__(self) -> None:
-        self._llm = self.llm_factory(self.settings)
+    llm: BaseChatModel
 
     @cached_property
     def _generation_chain(self) -> Runnable:
-        return generation_prompt | self._llm
+        return generation_prompt | self.llm
 
     @cached_property
     def _reflection_chain(self) -> Runnable:
-        return reflection_prompt | self._llm
+        return reflection_prompt | self.llm
 
     @cached_property
     def graph(self) -> CompiledStateGraph:

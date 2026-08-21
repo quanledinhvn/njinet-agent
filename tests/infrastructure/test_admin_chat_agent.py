@@ -21,13 +21,9 @@ async def test_agent_builds_reply_from_request_scoped_dependencies(settings):
             captured["messages"] = messages
             return AIMessage(content="done")
 
-    def build_llm(received_settings):
-        assert received_settings is settings
-        return LLM()
-
     agent = LangGraphAdminChatAgent(
         settings,
-        llm_factory=build_llm,
+        llm=LLM(),
         tool_loader=load_tools,
     )
 

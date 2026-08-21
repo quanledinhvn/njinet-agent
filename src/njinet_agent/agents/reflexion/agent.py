@@ -9,9 +9,8 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt import ToolNode
 
-from njinet_agent.agents.types import LLMFactory, SearchToolFactory
+from njinet_agent.agents.types import SearchToolFactory
 from njinet_agent.core.config import Settings
-from njinet_agent.infrastructure.llm.openai import build_openai_llm
 from njinet_agent.infrastructure.tools.search_tools import build_tavily_search_tool
 
 from .prompts import draft_prompt, revise_prompt
@@ -21,16 +20,14 @@ from .schemas import AnswerQuestion, ReflexionState, ReviseAnswer
 @dataclass
 class ReflexionAgent:
     settings: Settings
-    llm_factory: LLMFactory = build_openai_llm
+    llm: BaseChatModel
     search_tool_factory: SearchToolFactory = build_tavily_search_tool
     max_iterations: int = 2
 
     # Built lazily, once, and reused across invoke() calls.
-    _llm: BaseChatModel = field(init=False, repr=False)
     _search_tool: BaseTool = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
-        self._llm = self.llm_factory(self.settings)
         self._search_tool = self.search_tool_factory(self.settings)
 
     @cached_property
@@ -51,13 +48,13 @@ class ReflexionAgent:
     # --- Chains (built once, LLM reused) ---------------------------------
     @cached_property
     def _draft_chain(self) -> Runnable:
-        return draft_prompt | self._llm.bind_tools(
+        return draft_prompt | self.llm.bind_tools(
             [AnswerQuestion], tool_choice=AnswerQuestion.__name__
         )
 
     @cached_property
     def _revise_chain(self) -> Runnable:
-        return revise_prompt | self._llm.bind_tools(
+        return revise_prompt | self.llm.bind_tools(
             [ReviseAnswer], tool_choice=ReviseAnswer.__name__
         )
 
